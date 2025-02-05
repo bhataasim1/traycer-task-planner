@@ -4,6 +4,7 @@ import readline from 'readline';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import dotenv from 'dotenv';
 
+dotenv.config();
 class TaskPlanner {
     private gemini: GoogleGenerativeAI;
     public projectPath: string;
@@ -13,7 +14,6 @@ class TaskPlanner {
     private history: { role: string; content: string }[] = [];
 
     constructor(task: string) {
-        dotenv.config();
         this.gemini = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
         this.task = task;
         this.projectPath = process.cwd();
@@ -46,11 +46,12 @@ class TaskPlanner {
         return fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf-8') : '';
     }
 
-    public async generateTaskPlan(filePath?: string): Promise<string | undefined> {
+    public async generatePlanAndSuggestChanges(filePath?: string): Promise<string | undefined> {
         const fileContent = filePath ? this.readFileContent(filePath) : '';
-        const prompt = `Given the following codebase structure:${this.scanDirectory(this.projectPath).join('\n')}` +
-            (fileContent ? `File Content (${filePath}):${fileContent}` : '') +
-            `Plan steps to implement: ${this.task}`;
+        const prompt = `Given the following codebase structure: ${this.scanDirectory(this.projectPath).join('\n')}` +
+            (fileContent ? `\n\nFile Content (${filePath}):\n${fileContent}` : '') +
+            `\n\nProvide a detailed step-by-step plan on how to implement this Task: ${this.task}` +
+            ` Analyze the code and suggest changes to implement: ${this.task}`;
 
         const chatSession = this.model.startChat({
             generationConfig: this.generationConfig,
@@ -61,25 +62,11 @@ class TaskPlanner {
         return result.response.text();
     }
 
-    public async editOrCreateFile(filePath: string): Promise<void> {
-        let fileContent = this.readFileContent(filePath);
-        const prompt = `Modify the following file content to implement the task: ${this.task}\n\n\nCurrent content:${fileContent || '(File is empty)'}Provide the updated content:`;
-
-        const chatSession = this.model.startChat({
-            generationConfig: this.generationConfig,
-            history: this.history,
-        });
-
-        const result = await chatSession.sendMessage(prompt);
-        const updatedContent = result.response.text();
-
-        fs.writeFileSync(filePath, updatedContent, 'utf-8');
-        console.log(`Updated file: ${filePath}`);
-    }
-
-    public async execute(): Promise<void> {
-        const plan = await this.generateTaskPlan();
-        console.log('\nGenerated Task Plan:\n', plan);
+    public async execute(filePath?: string): Promise<void> {
+        console.log('\nGenerating Implementation Plan, Analyzing Code and Suggesting Changes...');
+        console.log('\nHold on, this might take a while... 🍿');
+        const planAndSuggestions = await this.generatePlanAndSuggestChanges(filePath);
+        console.log('\nSuggested Changes:\n', planAndSuggestions);
     }
 }
 
@@ -89,14 +76,9 @@ const rl = readline.createInterface({
 });
 
 rl.question('Enter your task: ', async (task) => {
-    rl.question('Enter the file name to modify (or press Enter to skip): ', async (fileName) => {
+    rl.question('Enter the file name to analyze (or press Enter to scan all files): ', async (fileName) => {
         const planner = new TaskPlanner(task);
-        await planner.execute();
-
-        if (fileName) {
-            const filePath = path.join(planner.projectPath, fileName);
-            await planner.editOrCreateFile(filePath);
-        }
+        await planner.execute(fileName ? path.join(planner.projectPath, fileName) : undefined);
         rl.close();
     });
 });
