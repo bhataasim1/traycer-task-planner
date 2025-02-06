@@ -48,6 +48,7 @@ class TaskPlanner {
 
     public async generatePlanAndSuggestChanges(filePath?: string): Promise<string | undefined> {
         const fileContent = filePath ? this.readFileContent(filePath) : '';
+        
         const prompt = `Given the following codebase structure: ${this.scanDirectory(this.projectPath).join('\n')}` +
             (fileContent ? `\n\nFile Content (${filePath}):\n${fileContent}` : '') +
             `\n\nProvide a detailed step-by-step plan on how to implement this Task: ${this.task}` +
