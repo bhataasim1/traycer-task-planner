@@ -75,10 +75,30 @@ const rl = readline.createInterface({
     output: process.stdout
 });
 
-rl.question('Enter your task: ', async (task) => {
-    rl.question('Enter the file name to analyze (or press Enter to scan all files): ', async (fileName) => {
-        const planner = new TaskPlanner(task);
-        await planner.execute(fileName ? path.join(planner.projectPath, fileName) : undefined);
-        rl.close();
+// rl.question('Enter your task: ', async (task) => {
+//     rl.question('Enter the file name to analyze (or press Enter to scan all files): ', async (fileName) => {
+//         const planner = new TaskPlanner(task);
+//         await planner.execute(fileName ? path.join(planner.projectPath, fileName) : undefined);
+//         rl.close();
+//     });
+// });
+
+const promptForTask = async () => {
+    rl.question('\nEnter your task (or type "exit" to quit): ', async (task) => {
+        if (task.toLowerCase() === "exit") {
+            console.log("\nExiting... 👋");
+            rl.close();
+            return;
+        }
+
+        rl.question('Enter the file name to analyze (or press Enter to scan all files): ', async (fileName) => {
+            const planner = new TaskPlanner(task);
+            await planner.execute(fileName ? path.join(planner.projectPath, fileName) : undefined);
+
+            // After completing, ask for another task
+            promptForTask();
+        });
     });
-});
+};
+
+promptForTask();
